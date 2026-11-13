@@ -1,19 +1,48 @@
 const TOKEN_STORAGE_KEY = 'indeecheck_token';
 
+// Always keep an in-memory copy so authentication works even in browsers/iframes
+// that block third-party localStorage & cookies (Safari ITP, Brave, Incognito, Edge Strict).
+let memoryToken: string | null = null;
+
 export function getStoredToken(): string | null {
+  if (memoryToken) return memoryToken;
   try {
-    return localStorage.getItem(TOKEN_STORAGE_KEY);
+    const fromLocal = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (fromLocal) {
+      memoryToken = fromLocal;
+      return fromLocal;
+    }
   } catch {
-    return null;
+    // ignore storage errors in restricted cross-origin iframes
   }
+  try {
+    const fromSession = sessionStorage.getItem(TOKEN_STORAGE_KEY);
+    if (fromSession) {
+      memoryToken = fromSession;
+      return fromSession;
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return null;
 }
 
 export function setStoredToken(token: string | null): void {
+  memoryToken = token;
   try {
     if (token) {
       localStorage.setItem(TOKEN_STORAGE_KEY, token);
     } else {
       localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+  try {
+    if (token) {
+      sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+    } else {
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
     }
   } catch {
     // ignore storage errors
@@ -55,6 +84,9 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   }
 
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith('/api/auth/')) {
+      window.dispatchEvent(new CustomEvent('indeecheck:unauthorized'));
+    }
     throw new ApiError(
       String(data.error || `Request failed with status ${res.status}`),
       res.status
@@ -107,6 +139,9 @@ export async function uploadSitePlanFile<T>(
   }
 
   if (!res.ok) {
+    if (res.status === 401) {
+      window.dispatchEvent(new CustomEvent('indeecheck:unauthorized'));
+    }
     throw new ApiError(
       String(data.error || `Upload failed with status ${res.status}`),
       res.status
@@ -124,4 +159,3 @@ export function getSitePlanFileUrl(sitePlanId: number, download = false): string
   const qs = params.toString();
   return `/api/site-plans/${sitePlanId}/file${qs ? `?${qs}` : ''}`;
 }
-

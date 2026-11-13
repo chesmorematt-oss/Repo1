@@ -33,7 +33,12 @@ desktopRouter.get('/windows-installer.bat', (req, res) => {
       `try { Invoke-WebRequest -Uri '${iconUrl}' -OutFile $icoPath -UseBasicParsing } catch {}; ` +
       `$edgePaths = @(\\"$env:ProgramFiles\\Microsoft\\Edge\\Application\\msedge.exe\\", \\"\${env:ProgramFiles(x86)}\\Microsoft\\Edge\\Application\\msedge.exe\\"); ` +
       `$chromePaths = @(\\"$env:ProgramFiles\\Google\\Chrome\\Application\\chrome.exe\\", \\"\${env:ProgramFiles(x86)}\\Google\\Chrome\\Application\\chrome.exe\\", \\"$env:LOCALAPPDATA\\Google\\Chrome\\Application\\chrome.exe\\"); ` +
-      `$browser = ($edgePaths + $chromePaths | Where-Object { Test-Path $_ } | Select-Object -First 1); ` +
+      `$bravePaths = @(\\"$env:ProgramFiles\\BraveSoftware\\Brave-Browser\\Application\\brave.exe\\", \\"$env:LOCALAPPDATA\\BraveSoftware\\Brave-Browser\\Application\\brave.exe\\"); ` +
+      `$progId = try { (Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice' -ErrorAction Stop).ProgId } catch { '' }; ` +
+      `$browser = $null; ` +
+      `if ($progId -like 'ChromeHTML*') { $browser = ($chromePaths | Where-Object { Test-Path $_ } | Select-Object -First 1) } ` +
+      `elseif ($progId -like 'MSEdge*') { $browser = ($edgePaths | Where-Object { Test-Path $_ } | Select-Object -First 1) } ` +
+      `elseif ($progId -like 'BraveHTML*') { $browser = ($bravePaths | Where-Object { Test-Path $_ } | Select-Object -First 1) }; ` +
       `$wsh = New-Object -ComObject WScript.Shell; ` +
       `$desktopPath = [Environment]::GetFolderPath('Desktop'); ` +
       `$lnk = $wsh.CreateShortcut((Join-Path $desktopPath 'IndeeCheck - Planning & Zoning.lnk')); ` +

@@ -72,8 +72,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     bootstrap();
+
+    const handleUnauthorized = () => {
+      setStoredToken(null);
+      setUser(null);
+    };
+    window.addEventListener('indeecheck:unauthorized', handleUnauthorized);
+
     return () => {
       cancelled = true;
+      window.removeEventListener('indeecheck:unauthorized', handleUnauthorized);
     };
   }, []);
 

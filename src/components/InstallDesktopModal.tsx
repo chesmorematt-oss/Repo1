@@ -194,7 +194,10 @@ export const InstallDesktopModal: React.FC = () => {
                     <p className="text-xs text-slate-600 mt-0.5">
                       Downloads the official <code className="font-mono">indeecheck.ico</code> icon
                       and creates <strong>IndeeCheck - Planning &amp; Zoning</strong> on your
-                      Desktop &amp; Start Menu (launches Edge/Chrome in standalone app mode).
+                      Desktop &amp; Start Menu using your default Windows browser.
+                    </p>
+                    <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-2">
+                      <strong>Cloud Preview Tip:</strong> Temporary cloud preview URLs require your active browser session. Ensure your default Windows browser matches the browser where you are signed into Arena, or use <strong>Open in Full Browser Tab</strong> above to install directly from this browser!
                     </p>
                   </div>
                   <a
