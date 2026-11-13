@@ -4,61 +4,7 @@ import {
   localUploadSitePlan,
 } from './localBackendFallback';
 
-const TOKEN_STORAGE_KEY = 'indeecheck_token';
-
-// Keep an in-memory copy alongside localStorage & sessionStorage so auth works
-// even in browsers/iframes that block third-party storage.
-let memoryToken: string | null = null;
 let usingLocalFallback = false;
-
-export function isUsingLocalFallback(): boolean {
-  return usingLocalFallback;
-}
-
-export function getStoredToken(): string | null {
-  if (memoryToken) return memoryToken;
-  try {
-    const fromLocal = localStorage.getItem(TOKEN_STORAGE_KEY);
-    if (fromLocal) {
-      memoryToken = fromLocal;
-      return fromLocal;
-    }
-  } catch {
-    // ignore storage errors
-  }
-  try {
-    const fromSession = sessionStorage.getItem(TOKEN_STORAGE_KEY);
-    if (fromSession) {
-      memoryToken = fromSession;
-      return fromSession;
-    }
-  } catch {
-    // ignore storage errors
-  }
-  return null;
-}
-
-export function setStoredToken(token: string | null): void {
-  memoryToken = token;
-  try {
-    if (token) {
-      localStorage.setItem(TOKEN_STORAGE_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-    }
-  } catch {
-    // ignore storage errors
-  }
-  try {
-    if (token) {
-      sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
-    } else {
-      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-    }
-  } catch {
-    // ignore storage errors
-  }
-}
 
 export class ApiError extends Error {
   status: number;
@@ -70,13 +16,9 @@ export class ApiError extends Error {
 
 async function runFallback<T>(path: string, options: RequestInit): Promise<T> {
   usingLocalFallback = true;
-  const currentToken = getStoredToken();
-  const fb = await handleLocalApiFallback<T>(path, options, currentToken);
+  const fb = await handleLocalApiFallback<T>(path, options);
   if (fb.status >= 400) {
     const errObj = fb.data as unknown as { error?: string };
-    if (fb.status === 401 && !path.startsWith('/api/auth/')) {
-      window.dispatchEvent(new CustomEvent('indeecheck:unauthorized'));
-    }
     throw new ApiError(
       String(errObj?.error || `Request failed with status ${fb.status}`),
       fb.status
@@ -90,34 +32,18 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   if (!headers.has('Content-Type') && options.body) {
     headers.set('Content-Type', 'application/json');
   }
-  const token = getStoredToken();
-  // If we already hold a local-fallback token, route through local store unless logging in fresh
-  if (usingLocalFallback && token?.startsWith('local-jwt-') && !path.startsWith('/api/auth/login')) {
-    return runFallback<T>(path, options);
-  }
-  if (token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
 
   let res: Response;
   try {
     res = await fetch(path, {
       ...options,
       headers,
-      credentials: 'include',
     });
   } catch {
-    // Network unreachable (offline Desktop App or paused cloud sandbox) -> seamless local fallback
     return runFallback<T>(path, options);
   }
 
-  const fromIndeeCheckServer = res.headers.get('x-indeecheck-server') === '1';
-
-  // If the response did NOT originate from our Express backend (for example, an upstream
-  // cloud preview proxy intercepted the XHR/fetch with "Cannot authenticate user" because
-  // third-party cookies were blocked or the app was launched in a standalone Desktop window),
-  // seamlessly handle the request via the built-in browser persistence engine!
-  if (!fromIndeeCheckServer) {
+  if (res.headers.get('x-indeecheck-server') !== '1') {
     return runFallback<T>(path, options);
   }
 
@@ -134,9 +60,6 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   }
 
   if (!res.ok) {
-    if (res.status === 401 && !path.startsWith('/api/auth/')) {
-      window.dispatchEvent(new CustomEvent('indeecheck:unauthorized'));
-    }
     throw new ApiError(
       String(data.error || `Request failed with status ${res.status}`),
       res.status
@@ -156,9 +79,8 @@ export async function uploadSitePlanFile<T>(
     notes?: string;
   } = {}
 ): Promise<T> {
-  const token = getStoredToken();
   if (usingLocalFallback) {
-    const localRes = await localUploadSitePlan(projectId, file, meta, token);
+    const localRes = await localUploadSitePlan(projectId, file, meta);
     return localRes as unknown as T;
   }
 
@@ -172,9 +94,6 @@ export async function uploadSitePlanFile<T>(
 
   const headers = new Headers();
   headers.set('Content-Type', file.type || 'application/octet-stream');
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
 
   let res: Response;
   try {
@@ -182,17 +101,16 @@ export async function uploadSitePlanFile<T>(
       method: 'POST',
       headers,
       body: file,
-      credentials: 'include',
     });
   } catch {
     usingLocalFallback = true;
-    const localRes = await localUploadSitePlan(projectId, file, meta, token);
+    const localRes = await localUploadSitePlan(projectId, file, meta);
     return localRes as unknown as T;
   }
 
   if (res.headers.get('x-indeecheck-server') !== '1') {
     usingLocalFallback = true;
-    const localRes = await localUploadSitePlan(projectId, file, meta, token);
+    const localRes = await localUploadSitePlan(projectId, file, meta);
     return localRes as unknown as T;
   }
 
@@ -207,9 +125,6 @@ export async function uploadSitePlanFile<T>(
   }
 
   if (!res.ok) {
-    if (res.status === 401) {
-      window.dispatchEvent(new CustomEvent('indeecheck:unauthorized'));
-    }
     throw new ApiError(
       String(data.error || `Upload failed with status ${res.status}`),
       res.status
@@ -226,8 +141,6 @@ export function getSitePlanFileUrl(sitePlanId: number, download = false): string
   }
   const params = new URLSearchParams();
   if (download) params.set('download', '1');
-  const token = getStoredToken();
-  if (token) params.set('token', token);
   const qs = params.toString();
   return `/api/site-plans/${sitePlanId}/file${qs ? `?${qs}` : ''}`;
 }

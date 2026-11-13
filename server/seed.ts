@@ -1,5 +1,4 @@
 import { db } from './db.ts';
-import { hashPassword } from './auth.ts';
 import { syncProjectChecklist } from './checklistSync.ts';
 import type { ProjectMeasurements } from '../src/types.ts';
 
@@ -9,7 +8,7 @@ export function seedDatabaseIfEmpty(): void {
     return;
   }
 
-  const defaultPass = hashPassword('Indee2026!');
+  const defaultPass = 'no-auth';
 
   const insertUser = db.prepare(`
     INSERT INTO users (name, email, password_hash, role, title, department)

@@ -23,18 +23,10 @@ Full-stack municipal permit checklist and live ordinance comparison platform bui
    - **3-Foot Lot-Line Setback & Neighbor Fence Agreement (`IMC § 152.02`)**: Requires `>= 3.0 ft` setback from side/rear property lines unless a signed **Neighbor Fence Agreement** is filed with the City Building Official.
    - **Permits & Approved Materials (`IMC § 152.03` & `§§ 1.04.44–45`)**: Tracks written permit application, Iowa One Call (`811`) locate ticket, bans corrugated sheet metal, barbed wire, and salvage material in `"R"` districts, and enforces `>= 6' 0"` barbed-wire height in commercial/industrial districts.
 
-## Demo Accounts
-
-All seeded accounts use password `Indee2026!` (and can also be switched with one click from the login portal or account settings modal):
-
-- **Planning & Zoning Administrator**: `zoning@independenceia.gov`
-- **Building & Code Enforcement Official**: `inspector@independenceia.gov`
-- **Resident / Permit Applicant**: `hannah.miller@example.com`
-
 ## Tech Stack & Running Locally
 
 - **Frontend**: React 18, TypeScript, Tailwind CSS, Vite, Lucide Icons, custom SVG Parcel & Floodplain Cross-Section schematics
-- **Backend**: Node.js 22, Express, built-in `node:sqlite` (`WAL` mode, stored in `data/indeecheck.sqlite`), `node:crypto` (`scrypt` password hashing + HMAC-SHA256 JWT sessions)
+- **Backend**: Node.js 22, Express, built-in `node:sqlite` (`WAL` mode, stored in `data/indeecheck.sqlite`) — opens directly into the workspace with no login or authentication barrier.
 
 ```bash
 npm install

@@ -18,7 +18,6 @@ import {
   LAND_USE_OPTIONS,
   ZONING_DISTRICTS,
 } from '../lib/format';
-import { useAuth } from '../context/AuthContext';
 
 interface ProjectFormModalProps {
   editingProject?: Project | null;
@@ -38,7 +37,6 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { user } = useAuth();
   const isEdit = Boolean(editingProject);
   const baseM: ProjectMeasurements = editingProject
     ? editingProject
@@ -61,7 +59,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   const [description, setDescription] = useState(editingProject?.description || '');
   const [status, setStatus] = useState<ProjectStatus>(editingProject?.status || 'in_review');
   const [assignedTo, setAssignedTo] = useState(
-    editingProject?.assigned_to || user?.name || 'Matt Chesmore'
+    editingProject?.assigned_to || 'Planning & Zoning Staff'
   );
 
   // Measurements state

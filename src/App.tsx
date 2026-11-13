@@ -1,12 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { DesktopInstallProvider } from './context/DesktopInstallContext';
 import { InstallDesktopModal } from './components/InstallDesktopModal';
-import { AuthPage } from './components/AuthPage';
 import { Layout } from './components/Layout';
 import type { NavTab } from './components/Layout';
-import { IndependenceLogo } from './components/IndependenceLogo';
 import { DashboardView } from './components/DashboardView';
 import { ProjectsListView } from './components/ProjectsListView';
 import { ProjectDetailView } from './components/ProjectDetailView';
@@ -18,7 +15,6 @@ import { PROJECT_STATUS_META } from './lib/format';
 import type { Project, ProjectMeasurements, ProjectStatus } from './types';
 
 const WorkspaceShell: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<NavTab>(() => {
@@ -44,7 +40,6 @@ const WorkspaceShell: React.FC = () => {
   );
 
   const fetchProjects = useCallback(async () => {
-    if (!user) return;
     try {
       const res = await apiFetch<{ projects: Project[] }>('/api/projects');
       setProjects(res.projects);
@@ -53,32 +48,12 @@ const WorkspaceShell: React.FC = () => {
     } finally {
       setProjectsLoading(false);
     }
-  }, [user, showToast]);
+  }, [showToast]);
 
   useEffect(() => {
-    if (user) {
-      setProjectsLoading(true);
-      fetchProjects();
-    } else {
-      setProjects([]);
-    }
-  }, [user, fetchProjects]);
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white gap-4">
-        <IndependenceLogo variant="card-on-dark" size="lg" className="animate-pulse" />
-        <div className="text-sm font-semibold tracking-tight">Loading IndeeCheck Workspace...</div>
-        <div className="text-xs text-slate-400">
-          City of Independence, IA Planning &amp; Zoning Ordinances
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <AuthPage />;
-  }
+    setProjectsLoading(true);
+    fetchProjects();
+  }, [fetchProjects]);
 
   const handleNavigate = (tab: NavTab) => {
     setSelectedProjectId(null);
@@ -267,10 +242,8 @@ export function App() {
   return (
     <ToastProvider>
       <DesktopInstallProvider>
-        <AuthProvider>
-          <WorkspaceShell />
-          <InstallDesktopModal />
-        </AuthProvider>
+        <WorkspaceShell />
+        <InstallDesktopModal />
       </DesktopInstallProvider>
     </ToastProvider>
   );

@@ -1,14 +1,9 @@
 import { Router } from 'express';
 import { db } from '../db.ts';
-import { requireAuth } from '../auth.ts';
-import type { AuthenticatedRequest } from '../auth.ts';
 
 export const checklistRouter = Router();
 
-checklistRouter.use(requireAuth);
-
-checklistRouter.post('/projects/:projectId/checklist', (req: AuthenticatedRequest, res) => {
-  const user = req.user!;
+checklistRouter.post('/projects/:projectId/checklist', (req, res) => {
   const projectId = Number(req.params.projectId);
   const proj = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
   if (!proj) {
@@ -36,7 +31,9 @@ checklistRouter.post('/projects/:projectId/checklist', (req: AuthenticatedReques
     .prepare('SELECT COALESCE(MAX(sort_order), 0) as max_sort FROM checklist_items WHERE project_id = ?')
     .get(projectId) as { max_sort: number };
 
-  const verifiedBy = status === 'pass' || status === 'fail' || status === 'variance' ? user.name : '';
+  const reviewer = String(req.body?.verified_by || 'Planning & Zoning Staff').trim();
+  const verifiedBy =
+    status === 'pass' || status === 'fail' || status === 'variance' ? reviewer : '';
 
   const result = db
     .prepare(
@@ -67,8 +64,7 @@ checklistRouter.post('/projects/:projectId/checklist', (req: AuthenticatedReques
   res.status(201).json({ item });
 });
 
-checklistRouter.patch('/checklist/:id', (req: AuthenticatedRequest, res) => {
-  const user = req.user!;
+checklistRouter.patch('/checklist/:id', (req, res) => {
   const id = Number(req.params.id);
   const existing = db.prepare('SELECT * FROM checklist_items WHERE id = ?').get(id) as
     | Record<string, unknown>
@@ -79,12 +75,13 @@ checklistRouter.patch('/checklist/:id', (req: AuthenticatedRequest, res) => {
   }
 
   const body = req.body || {};
+  const reviewer = String(body.verified_by || 'Planning & Zoning Staff').trim();
   const nextStatus = body.status !== undefined ? String(body.status) : String(existing.status);
   const nextVerifiedBy =
     body.status !== undefined
       ? nextStatus === 'pending' || nextStatus === 'na'
         ? ''
-        : user.name
+        : reviewer
       : String(existing.verified_by || '');
 
   db.prepare(
@@ -129,17 +126,17 @@ checklistRouter.patch('/checklist/:id', (req: AuthenticatedRequest, res) => {
   res.json({ item });
 });
 
-checklistRouter.post('/projects/:projectId/checklist/bulk-status', (req: AuthenticatedRequest, res) => {
-  const user = req.user!;
+checklistRouter.post('/projects/:projectId/checklist/bulk-status', (req, res) => {
   const projectId = Number(req.params.projectId);
-  const { category, status } = req.body || {};
+  const { category, status, verified_by } = req.body || {};
   const validStatuses = new Set(['pass', 'fail', 'pending', 'variance', 'na']);
   if (!validStatuses.has(status)) {
     res.status(400).json({ error: 'Invalid checklist status.' });
     return;
   }
 
-  const verifiedBy = status === 'pending' || status === 'na' ? '' : user.name;
+  const reviewer = String(verified_by || 'Planning & Zoning Staff').trim();
+  const verifiedBy = status === 'pending' || status === 'na' ? '' : reviewer;
   if (category && category !== 'all') {
     db.prepare(
       "UPDATE checklist_items SET status = ?, verified_by = ?, updated_at = datetime('now') WHERE project_id = ? AND category = ? AND status != 'na'"

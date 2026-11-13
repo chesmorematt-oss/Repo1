@@ -3,12 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express, { Router } from 'express';
 import { db, UPLOADS_DIR } from '../db.ts';
-import { requireAuth } from '../auth.ts';
-import type { AuthenticatedRequest } from '../auth.ts';
 
 export const sitePlansRouter = Router();
-
-sitePlansRouter.use(requireAuth);
 
 const ALLOWED_EXTENSIONS = new Set([
   '.pdf',
@@ -80,11 +76,13 @@ sitePlansRouter.get('/projects/:projectId/site-plans', (req, res) => {
 sitePlansRouter.post(
   '/projects/:projectId/site-plans',
   express.raw({ type: '*/*', limit: '25mb' }),
-  (req: AuthenticatedRequest, res) => {
+  (req, res) => {
     const projectId = Number(req.params.projectId);
     const project = db
-      .prepare('SELECT id, permit_number, property_address FROM projects WHERE id = ?')
-      .get(projectId) as { id: number; permit_number: string; property_address: string } | undefined;
+      .prepare('SELECT id, permit_number, property_address, applicant_name FROM projects WHERE id = ?')
+      .get(projectId) as
+      | { id: number; permit_number: string; property_address: string; applicant_name: string }
+      | undefined;
 
     if (!project) {
       res.status(404).json({ error: 'Permit project not found.' });
@@ -123,7 +121,8 @@ sitePlansRouter.post(
     const title = String(req.query.title || '').trim() || defaultTitle;
     const revisionLabel = String(req.query.revision_label || '').trim() || 'Rev 1';
     const notes = String(req.query.notes || '').trim();
-    const uploadedBy = req.user?.name || 'Permit Applicant';
+    const uploadedBy =
+      String(req.query.uploaded_by || '').trim() || project.applicant_name || 'Permit Submittal';
 
     const storedFilename = `${projectId}-${Date.now()}-${crypto.randomUUID()}${ext}`;
     const destPath = path.join(UPLOADS_DIR, storedFilename);

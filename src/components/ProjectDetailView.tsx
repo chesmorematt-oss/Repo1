@@ -38,7 +38,6 @@ import {
 } from '../lib/format';
 import { apiFetch, getSitePlanFileUrl } from '../lib/api';
 import { useToast } from '../context/ToastContext';
-import { useAuth } from '../context/AuthContext';
 import { SitePlanDiagram } from './diagrams/SitePlanDiagram';
 import { FloodplainCrossSection } from './diagrams/FloodplainCrossSection';
 import { IndependenceLogo } from './IndependenceLogo';
@@ -64,7 +63,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   refreshKey = 0,
 }) => {
   const { showToast } = useToast();
-  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<Project | null>(null);
@@ -163,8 +161,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const handleItemStatusChange = async (item: ChecklistItem, nextStatus: ChecklistStatus) => {
     if (item.status === nextStatus) return;
     const prevChecklist = [...checklist];
+    const reviewerLabel = project?.assigned_to || 'Planning & Zoning Staff';
     const optimisticVerified =
-      nextStatus === 'pending' || nextStatus === 'na' ? '' : user?.name || 'Inspector';
+      nextStatus === 'pending' || nextStatus === 'na' ? '' : reviewerLabel;
 
     setChecklist((curr) =>
       curr.map((c) =>
@@ -175,7 +174,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     try {
       const res = await apiFetch<{ item: ChecklistItem }>(`/api/checklist/${item.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify({ status: nextStatus, verified_by: reviewerLabel }),
       });
       setChecklist((curr) => curr.map((c) => (c.id === item.id ? res.item : c)));
       onProjectUpdated();
@@ -327,11 +326,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const handleBulkStatus = async (status: ChecklistStatus) => {
     if (!project) return;
     const prev = [...checklist];
+    const reviewerLabel = project.assigned_to || 'Planning & Zoning Staff';
     setChecklist((curr) =>
       curr.map((c) => {
         if (c.status === 'na') return c;
         if (catFilter !== 'all' && c.category !== catFilter) return c;
-        return { ...c, status, verified_by: status === 'pending' ? '' : user?.name || '' };
+        return { ...c, status, verified_by: status === 'pending' ? '' : reviewerLabel };
       })
     );
     try {
@@ -339,7 +339,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         `/api/projects/${project.id}/checklist/bulk-status`,
         {
           method: 'POST',
-          body: JSON.stringify({ category: catFilter, status }),
+          body: JSON.stringify({ category: catFilter, status, verified_by: reviewerLabel }),
         }
       );
       setChecklist(res.checklist);
@@ -406,11 +406,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     e.preventDefault();
     if (!project || !newNoteContent.trim()) return;
     const tempId = -Date.now();
+    const authorLabel = project.assigned_to || 'Planning & Zoning Staff';
     const optimisticNote: InspectionNote = {
       id: tempId,
       project_id: project.id,
-      author_name: user?.name || 'Inspector',
-      author_role: user?.title || 'Planning & Zoning',
+      author_name: authorLabel,
+      author_role: 'City of Independence — Planning & Zoning',
       note_type: newNoteType,
       content: newNoteContent.trim(),
       created_at: new Date().toISOString(),
@@ -423,7 +424,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     try {
       const res = await apiFetch<{ note: InspectionNote }>(`/api/projects/${project.id}/notes`, {
         method: 'POST',
-        body: JSON.stringify({ note_type: newNoteType, content: savedText }),
+        body: JSON.stringify({
+          note_type: newNoteType,
+          content: savedText,
+          author_name: authorLabel,
+        }),
       });
       setNotes((curr) => curr.map((n) => (n.id === tempId ? res.note : n)));
       showToast('Inspection note logged.');

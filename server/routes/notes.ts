@@ -1,33 +1,35 @@
 import { Router } from 'express';
 import { db } from '../db.ts';
-import { requireAuth } from '../auth.ts';
-import type { AuthenticatedRequest } from '../auth.ts';
 
 export const notesRouter = Router();
 
-notesRouter.use(requireAuth);
-
-notesRouter.post('/projects/:projectId/notes', (req: AuthenticatedRequest, res) => {
-  const user = req.user!;
+notesRouter.post('/projects/:projectId/notes', (req, res) => {
   const projectId = Number(req.params.projectId);
-  const proj = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+  const proj = db.prepare('SELECT id, assigned_to FROM projects WHERE id = ?').get(projectId) as
+    | { id: number; assigned_to: string }
+    | undefined;
   if (!proj) {
     res.status(404).json({ error: 'Project not found.' });
     return;
   }
 
-  const { note_type = 'inspection', content } = req.body || {};
+  const { note_type = 'inspection', content, author_name, author_role } = req.body || {};
   if (!content || !String(content).trim()) {
     res.status(400).json({ error: 'Note content is required.' });
     return;
   }
+
+  const resolvedAuthor =
+    String(author_name || proj.assigned_to || 'Planning & Zoning Staff').trim();
+  const resolvedRole =
+    String(author_role || 'City of Independence — Planning & Zoning').trim();
 
   const result = db
     .prepare(
       `INSERT INTO inspection_notes (project_id, author_name, author_role, note_type, content, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
     )
-    .run(projectId, user.name, user.title, String(note_type), String(content).trim());
+    .run(projectId, resolvedAuthor, resolvedRole, String(note_type), String(content).trim());
 
   db.prepare("UPDATE projects SET updated_at = datetime('now') WHERE id = ?").run(projectId);
 

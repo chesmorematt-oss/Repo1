@@ -1,12 +1,9 @@
 import { Router } from 'express';
 import { db } from '../db.ts';
-import { requireAuth } from '../auth.ts';
 import { evaluateProjectCompliance } from '../ordinanceEngine.ts';
 import type { ProjectMeasurements } from '../../src/types.ts';
 
 export const ordinancesRouter = Router();
-
-ordinancesRouter.use(requireAuth);
 
 ordinancesRouter.get('/', (req, res) => {
   const { category, search } = req.query;

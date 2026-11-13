@@ -2,15 +2,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Router } from 'express';
 import { db, rowToProject, UPLOADS_DIR } from '../db.ts';
-import { requireAuth } from '../auth.ts';
-import type { AuthenticatedRequest } from '../auth.ts';
 import { evaluateProjectCompliance } from '../ordinanceEngine.ts';
 import { syncProjectChecklist } from '../checklistSync.ts';
 import type { Project, ProjectMeasurements } from '../../src/types.ts';
 
 export const projectsRouter = Router();
 
-projectsRouter.use(requireAuth);
+function getDefaultStaffUserId(): number {
+  const row = db.prepare('SELECT id FROM users ORDER BY id ASC LIMIT 1').get() as
+    | { id: number }
+    | undefined;
+  return row?.id ?? 1;
+}
 
 function nextPermitNumber(): string {
   const rows = db.prepare('SELECT permit_number FROM projects').all() as Array<{
@@ -174,8 +177,7 @@ function sanitizeMeasurements(body: Record<string, unknown>): ProjectMeasurement
   };
 }
 
-projectsRouter.post('/', (req: AuthenticatedRequest, res) => {
-  const user = req.user!;
+projectsRouter.post('/', (req, res) => {
   const body = (req.body || {}) as Record<string, unknown>;
 
   const title = String(body.title || '').trim();
@@ -192,7 +194,8 @@ projectsRouter.post('/', (req: AuthenticatedRequest, res) => {
   const m = sanitizeMeasurements(body);
   const permit_number = nextPermitNumber();
   const status = String(body.status || 'in_review');
-  const assigned_to = String(body.assigned_to || user.name).trim();
+  const assigned_to = String(body.assigned_to || 'Planning & Zoning Staff').trim();
+  const creatorId = getDefaultStaffUserId();
 
   const result = db
     .prepare(
@@ -238,7 +241,7 @@ projectsRouter.post('/', (req: AuthenticatedRequest, res) => {
       String(body.description || '').trim(),
       status,
       assigned_to,
-      user.id,
+      creatorId,
       m.zoning_district,
       m.land_use,
       m.public_water_sewer ? 1 : 0,
@@ -283,23 +286,22 @@ projectsRouter.post('/', (req: AuthenticatedRequest, res) => {
     );
 
   const projectId = Number(result.lastInsertRowid);
-  syncProjectChecklist(projectId, m, user.name, false);
+  syncProjectChecklist(projectId, m, assigned_to, false);
 
   db.prepare(
     `INSERT INTO inspection_notes (project_id, author_name, author_role, note_type, content)
      VALUES (?, ?, ?, 'general', ?)`
   ).run(
     projectId,
-    user.name,
-    user.title,
+    assigned_to,
+    'City of Independence — Planning & Zoning',
     `Created permit checklist ${permit_number} and ran initial automated comparison against Independence Zoning (Art. 1–5), Floodplain (IMC Ch. 167 / Art. 4), and Fence (IMC Ch. 152) ordinances.`
   );
 
   res.status(201).json(getFullProjectPayload(projectId));
 });
 
-projectsRouter.put('/:id', (req: AuthenticatedRequest, res) => {
-  const user = req.user!;
+projectsRouter.put('/:id', (req, res) => {
   const id = Number(req.params.id);
   const existing = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as
     | Record<string, unknown>
@@ -385,7 +387,8 @@ projectsRouter.put('/:id', (req: AuthenticatedRequest, res) => {
   );
 
   if (req.body?.auto_sync_checklist !== false) {
-    syncProjectChecklist(id, m, user.name, true);
+    const reviewerLabel = String(merged.assigned_to || existing.assigned_to || 'Planning & Zoning Staff').trim();
+    syncProjectChecklist(id, m, reviewerLabel, true);
   }
 
   res.json(getFullProjectPayload(id));
@@ -417,8 +420,7 @@ projectsRouter.patch('/:id/status', (req, res) => {
   res.json(getFullProjectPayload(id));
 });
 
-projectsRouter.post('/:id/sync-checklist', (req: AuthenticatedRequest, res) => {
-  const user = req.user!;
+projectsRouter.post('/:id/sync-checklist', (req, res) => {
   const id = Number(req.params.id);
   const raw = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as
     | Record<string, unknown>
@@ -428,13 +430,17 @@ projectsRouter.post('/:id/sync-checklist', (req: AuthenticatedRequest, res) => {
     return;
   }
   const project = rowToProject(raw) as unknown as Project;
-  syncProjectChecklist(id, project, user.name, Boolean(req.body?.preserve_manual ?? true));
+  syncProjectChecklist(
+    id,
+    project,
+    project.assigned_to || 'Planning & Zoning Staff',
+    Boolean(req.body?.preserve_manual ?? true)
+  );
   db.prepare("UPDATE projects SET updated_at = datetime('now') WHERE id = ?").run(id);
   res.json(getFullProjectPayload(id));
 });
 
-projectsRouter.post('/:id/duplicate', (req: AuthenticatedRequest, res) => {
-  const user = req.user!;
+projectsRouter.post('/:id/duplicate', (req, res) => {
   const id = Number(req.params.id);
   const raw = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as
     | Record<string, unknown>
@@ -445,6 +451,7 @@ projectsRouter.post('/:id/duplicate', (req: AuthenticatedRequest, res) => {
   }
   const src = rowToProject(raw) as unknown as Project;
   const permit_number = nextPermitNumber();
+  const creatorId = getDefaultStaffUserId();
 
   const result = db
     .prepare(
@@ -488,8 +495,8 @@ projectsRouter.post('/:id/duplicate', (req: AuthenticatedRequest, res) => {
       src.applicant_email,
       src.applicant_phone,
       src.description,
-      user.name,
-      user.id,
+      src.assigned_to || 'Planning & Zoning Staff',
+      creatorId,
       src.zoning_district,
       src.land_use,
       src.public_water_sewer ? 1 : 0,
@@ -534,7 +541,7 @@ projectsRouter.post('/:id/duplicate', (req: AuthenticatedRequest, res) => {
     );
 
   const newId = Number(result.lastInsertRowid);
-  syncProjectChecklist(newId, src, user.name, false);
+  syncProjectChecklist(newId, src, src.assigned_to || 'Planning & Zoning Staff', false);
   res.status(201).json(getFullProjectPayload(newId));
 });
 

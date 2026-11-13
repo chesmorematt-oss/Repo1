@@ -1,10 +1,8 @@
 import path from 'node:path';
 import http from 'node:http';
 import express from 'express';
-import cookieParser from 'cookie-parser';
 import { initSchema } from './db.ts';
 import { seedDatabaseIfEmpty } from './seed.ts';
-import { authRouter } from './routes/auth.ts';
 import { projectsRouter } from './routes/projects.ts';
 import { checklistRouter } from './routes/checklist.ts';
 import { ordinancesRouter } from './routes/ordinances.ts';
@@ -21,10 +19,9 @@ async function startServer() {
   const httpServer = http.createServer(app);
 
   app.use(express.json({ limit: '2mb' }));
-  app.use(cookieParser());
 
   // Tag every genuine backend API response so the frontend can distinguish
-  // real IndeeCheck API responses from upstream cloud-proxy auth blocks.
+  // real IndeeCheck API responses from upstream cloud-proxy blocks.
   app.use('/api', (_req, res, next) => {
     res.setHeader('X-IndeeCheck-Server', '1');
     next();
@@ -39,8 +36,7 @@ async function startServer() {
     });
   });
 
-  // API Routes
-  app.use('/api/auth', authRouter);
+  // API Routes (no authentication required)
   app.use('/api/desktop', desktopRouter);
   app.use('/api', sitePlansRouter);
   app.use('/api/projects', projectsRouter);

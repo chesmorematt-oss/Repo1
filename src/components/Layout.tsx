@@ -7,16 +7,12 @@ import {
   Plus,
   Menu,
   X,
-  LogOut,
-  Settings,
   MapPin,
   MonitorDown,
   CheckCircle2,
+  Building2,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
 import { useDesktopInstall } from '../context/DesktopInstallContext';
-import { ProfileModal } from './ProfileModal';
 import { IndependenceLogo } from './IndependenceLogo';
 
 export type NavTab = 'dashboard' | 'projects' | 'comparator' | 'ordinances';
@@ -39,11 +35,8 @@ export const Layout: React.FC<LayoutProps> = ({
   projectCounts,
   children,
 }) => {
-  const { user, logout } = useAuth();
-  const { showToast } = useToast();
   const { openInstallModal, isStandalone } = useDesktopInstall();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
 
   const navItems: Array<{
     id: NavTab;
@@ -244,44 +237,22 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </nav>
 
-      {/* User Account Footer */}
-      {user && (
-        <div className="p-3 border-t border-slate-800/80 bg-slate-950/60">
-          <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-900 border border-slate-800">
-            <div className="w-8 h-8 rounded-lg bg-civic-700 text-white font-bold text-xs flex items-center justify-center shrink-0">
-              {user.name
-                .split(' ')
-                .map((p) => p[0])
-                .slice(0, 2)
-                .join('')
-                .toUpperCase()}
+      {/* Municipal Department Footer */}
+      <div className="p-3 border-t border-slate-800/80 bg-slate-950/60">
+        <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+          <div className="w-8 h-8 rounded-lg bg-civic-700 text-white flex items-center justify-center shrink-0">
+            <Building2 className="w-4 h-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold text-white truncate">
+              Planning &amp; Zoning Dept.
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-semibold text-white truncate">{user.name}</div>
-              <div className="text-[11px] text-slate-400 truncate capitalize">{user.role} &middot; {user.title}</div>
+            <div className="text-[10px] text-slate-400 truncate">
+              331 1st St E &middot; (319) 334-4711
             </div>
-            <button
-              type="button"
-              onClick={() => setProfileOpen(true)}
-              title="Account Settings & Role Switcher"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                await logout();
-                showToast('Signed out of IndeeCheck.', 'info');
-              }}
-              title="Sign Out"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 
@@ -347,8 +318,6 @@ export const Layout: React.FC<LayoutProps> = ({
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">{children}</main>
       </div>
-
-      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
     </div>
   );
 };

@@ -308,11 +308,9 @@ export async function localUploadSitePlan(
     plan_type?: string;
     revision_label?: string;
     notes?: string;
-  },
-  token: string | null
+  }
 ): Promise<{ sitePlan: SitePlanDocument }> {
   const db = loadDb();
-  const user = parseUserFromToken(db, token) || db.users[0];
   const project = db.projects.find((p) => p.id === projectId);
   if (!project) {
     throw new Error('Permit project not found.');
@@ -341,7 +339,7 @@ export async function localUploadSitePlan(
     file_size: file.size,
     revision_label: meta.revision_label?.trim() || 'Rev 1',
     notes: meta.notes?.trim() || '',
-    uploaded_by: user.name,
+    uploaded_by: project.applicant_name || 'Permit Submittal',
     created_at: new Date().toISOString(),
   };
 
@@ -354,8 +352,7 @@ export async function localUploadSitePlan(
 
 export async function handleLocalApiFallback<T>(
   rawPath: string,
-  options: RequestInit,
-  currentToken: string | null
+  options: RequestInit
 ): Promise<{ status: number; data: T }> {
   const db = loadDb();
   const method = (options.method || 'GET').toUpperCase();
@@ -366,126 +363,7 @@ export async function handleLocalApiFallback<T>(
       ? (JSON.parse(options.body) as Record<string, unknown>)
       : {};
 
-  // --- AUTH ROUTES ---
-  if (pathname === '/api/auth/me' && method === 'GET') {
-    const user = parseUserFromToken(db, currentToken);
-    if (!user) {
-      return { status: 401, data: { error: 'Not signed in.' } as unknown as T };
-    }
-    return { status: 200, data: { user: publicUser(user) } as unknown as T };
-  }
-
-  if (pathname === '/api/auth/demo-login' && method === 'POST') {
-    const email = String(body.email || 'zoning@independenceia.gov').trim().toLowerCase();
-    const found =
-      db.users.find((u) => u.email.toLowerCase() === email) || db.users[0];
-    const token = makeLocalToken(found.id);
-    return { status: 200, data: { user: publicUser(found), token } as unknown as T };
-  }
-
-  if (pathname === '/api/auth/login' && method === 'POST') {
-    const email = String(body.email || '').trim().toLowerCase();
-    const password = String(body.password || '');
-    if (!email || !password) {
-      return {
-        status: 400,
-        data: { error: 'Email and password are required.' } as unknown as T,
-      };
-    }
-    const found = db.users.find((u) => u.email.toLowerCase() === email);
-    if (!found) {
-      return {
-        status: 401,
-        data: {
-          error:
-            'No account found for that email. Click "Create Account" above to register, or use one of the instant demo accounts.',
-        } as unknown as T,
-      };
-    }
-    if (found.password !== password) {
-      return {
-        status: 401,
-        data: {
-          error: 'Incorrect password. (For demo accounts, use password: Indee2026!)',
-        } as unknown as T,
-      };
-    }
-    const token = makeLocalToken(found.id);
-    return { status: 200, data: { user: publicUser(found), token } as unknown as T };
-  }
-
-  if (pathname === '/api/auth/register' && method === 'POST') {
-    const name = String(body.name || '').trim();
-    const email = String(body.email || '').trim().toLowerCase();
-    const password = String(body.password || '');
-    const roleRaw = String(body.role || 'inspector');
-    if (!name || !email || !password) {
-      return {
-        status: 400,
-        data: { error: 'Name, email, and password are required.' } as unknown as T,
-      };
-    }
-    if (password.length < 6) {
-      return {
-        status: 400,
-        data: { error: 'Password must be at least 6 characters.' } as unknown as T,
-      };
-    }
-    if (db.users.some((u) => u.email.toLowerCase() === email)) {
-      return {
-        status: 409,
-        data: { error: 'An account with this email already exists.' } as unknown as T,
-      };
-    }
-    const role: UserRole =
-      roleRaw === 'admin' || roleRaw === 'applicant' ? roleRaw : 'inspector';
-    const defaultTitle =
-      role === 'admin'
-        ? 'Planning & Zoning Administrator'
-        : role === 'applicant'
-          ? 'Property Owner / Permit Applicant'
-          : 'Zoning & Code Reviewer';
-    const newUser: StoredUser = {
-      id: db.nextIds.user++,
-      name,
-      email,
-      password,
-      role,
-      title: String(body.title || defaultTitle).trim() || defaultTitle,
-      department:
-        String(
-          body.department ||
-            (role === 'applicant'
-              ? 'Independence, IA Resident / Contractor'
-              : 'City of Independence — Planning & Zoning')
-        ).trim(),
-      created_at: new Date().toISOString(),
-    };
-    db.users.push(newUser);
-    saveDb(db);
-    const token = makeLocalToken(newUser.id);
-    return { status: 201, data: { user: publicUser(newUser), token } as unknown as T };
-  }
-
-  if (pathname === '/api/auth/logout' && method === 'POST') {
-    return { status: 200, data: { ok: true } as unknown as T };
-  }
-
-  if (pathname === '/api/auth/profile' && method === 'PATCH') {
-    const user = parseUserFromToken(db, currentToken) || db.users[0];
-    if (typeof body.name === 'string' && body.name.trim()) user.name = body.name.trim();
-    if (typeof body.title === 'string' && body.title.trim()) user.title = body.title.trim();
-    if (typeof body.department === 'string' && body.department.trim())
-      user.department = body.department.trim();
-    if (body.role === 'admin' || body.role === 'inspector' || body.role === 'applicant') {
-      user.role = body.role;
-    }
-    saveDb(db);
-    return { status: 200, data: { user: publicUser(user) } as unknown as T };
-  }
-
-  // Authenticated user for workspace endpoints
-  const actor = parseUserFromToken(db, currentToken) || db.users[0];
+  const actor = db.users[0];
 
   // --- ORDINANCES ---
   if (pathname === '/api/ordinances/compare' && method === 'POST') {
