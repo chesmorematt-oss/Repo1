@@ -1,0 +1,241 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider, useToast } from './context/ToastContext';
+import { AuthPage } from './components/AuthPage';
+import { Layout } from './components/Layout';
+import type { NavTab } from './components/Layout';
+import { IndependenceLogo } from './components/IndependenceLogo';
+import { DashboardView } from './components/DashboardView';
+import { ProjectsListView } from './components/ProjectsListView';
+import { ProjectDetailView } from './components/ProjectDetailView';
+import { ProjectFormModal } from './components/ProjectFormModal';
+import { ComparatorView } from './components/ComparatorView';
+import { OrdinancesView } from './components/OrdinancesView';
+import { apiFetch } from './lib/api';
+import { PROJECT_STATUS_META } from './lib/format';
+import type { Project, ProjectMeasurements, ProjectStatus } from './types';
+
+const WorkspaceShell: React.FC = () => {
+  const { user, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
+
+  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
+
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+
+  // Create / Edit Project Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [prefillMeasurements, setPrefillMeasurements] = useState<ProjectMeasurements | null>(
+    null
+  );
+
+  const fetchProjects = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await apiFetch<{ projects: Project[] }>('/api/projects');
+      setProjects(res.projects);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load projects.', 'error');
+    } finally {
+      setProjectsLoading(false);
+    }
+  }, [user, showToast]);
+
+  useEffect(() => {
+    if (user) {
+      setProjectsLoading(true);
+      fetchProjects();
+    } else {
+      setProjects([]);
+    }
+  }, [user, fetchProjects]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white gap-4">
+        <IndependenceLogo variant="card-on-dark" size="lg" className="animate-pulse" />
+        <div className="text-sm font-semibold tracking-tight">Loading IndeeCheck Workspace...</div>
+        <div className="text-xs text-slate-400">
+          City of Independence, IA Planning &amp; Zoning Ordinances
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  const handleNavigate = (tab: NavTab) => {
+    setSelectedProjectId(null);
+    setActiveTab(tab);
+  };
+
+  const handleSelectProject = (id: number) => {
+    setSelectedProjectId(id);
+    setActiveTab('projects');
+  };
+
+  const handleOpenCreateModal = (initialM?: ProjectMeasurements) => {
+    setEditingProject(null);
+    setPrefillMeasurements(initialM || null);
+    setModalOpen(true);
+  };
+
+  const handleOpenEditModal = (project: Project) => {
+    setEditingProject(project);
+    setPrefillMeasurements(null);
+    setModalOpen(true);
+  };
+
+  const handleSaveProjectModal = async (
+    payload: Record<string, unknown>,
+    isEdit: boolean,
+    id?: number
+  ) => {
+    if (isEdit && id) {
+      const res = await apiFetch<{ project: Project }>(`/api/projects/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      setProjects((curr) => curr.map((p) => (p.id === id ? res.project : p)));
+      setDetailRefreshKey((k) => k + 1);
+      showToast(`Updated ${res.project.permit_number} & re-synced ordinance checks.`);
+    } else {
+      const res = await apiFetch<{ project: Project }>('/api/projects', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      setProjects((curr) => [res.project, ...curr]);
+      setSelectedProjectId(res.project.id);
+      setActiveTab('projects');
+      showToast(`Created permit checklist ${res.project.permit_number}.`);
+    }
+    fetchProjects();
+  };
+
+  // Optimistic status update from Projects list
+  const handleQuickStatusChange = async (project: Project, nextStatus: ProjectStatus) => {
+    const prev = [...projects];
+    setProjects((curr) =>
+      curr.map((p) => (p.id === project.id ? { ...p, status: nextStatus } : p))
+    );
+    try {
+      const res = await apiFetch<{ project: Project }>(`/api/projects/${project.id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      setProjects((curr) => curr.map((p) => (p.id === project.id ? res.project : p)));
+      showToast(
+        `${project.permit_number} marked ${PROJECT_STATUS_META[nextStatus].label}.`
+      );
+    } catch (err) {
+      setProjects(prev);
+      showToast(err instanceof Error ? err.message : 'Status update failed.', 'error');
+    }
+  };
+
+  const handleDuplicateProject = async (project: Project) => {
+    try {
+      const res = await apiFetch<{ project: Project }>(`/api/projects/${project.id}/duplicate`, {
+        method: 'POST',
+      });
+      setProjects((curr) => [res.project, ...curr]);
+      setSelectedProjectId(res.project.id);
+      setActiveTab('projects');
+      showToast(`Duplicated as ${res.project.permit_number}.`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to duplicate project.', 'error');
+    }
+  };
+
+  const handleDeleteProject = async (project: Project) => {
+    const prev = [...projects];
+    setProjects((curr) => curr.filter((p) => p.id !== project.id));
+    if (selectedProjectId === project.id) {
+      setSelectedProjectId(null);
+    }
+    try {
+      await apiFetch(`/api/projects/${project.id}`, { method: 'DELETE' });
+      showToast(`Deleted ${project.permit_number}.`, 'info');
+    } catch (err) {
+      setProjects(prev);
+      showToast(err instanceof Error ? err.message : 'Failed to delete project.', 'error');
+    }
+  };
+
+  const attentionCount = projects.filter(
+    (p) => p.status === 'corrections_required' || p.status === 'variance_needed'
+  ).length;
+
+  return (
+    <Layout
+      activeTab={activeTab}
+      onNavigate={handleNavigate}
+      onNewProject={() => handleOpenCreateModal()}
+      projectCounts={{ total: projects.length, attention: attentionCount }}
+    >
+      {selectedProjectId !== null ? (
+        <ProjectDetailView
+          projectId={selectedProjectId}
+          refreshKey={detailRefreshKey}
+          onBack={() => setSelectedProjectId(null)}
+          onEditProject={handleOpenEditModal}
+          onProjectUpdated={fetchProjects}
+          onDuplicateProject={handleDuplicateProject}
+          onDeleteProject={handleDeleteProject}
+        />
+      ) : activeTab === 'dashboard' ? (
+        <DashboardView
+          projects={projects}
+          loading={projectsLoading}
+          onSelectProject={handleSelectProject}
+          onNavigate={handleNavigate}
+          onNewProject={() => handleOpenCreateModal()}
+        />
+      ) : activeTab === 'projects' ? (
+        <ProjectsListView
+          projects={projects}
+          loading={projectsLoading}
+          onSelectProject={handleSelectProject}
+          onNewProject={() => handleOpenCreateModal()}
+          onEditProject={handleOpenEditModal}
+          onDuplicateProject={handleDuplicateProject}
+          onDeleteProject={handleDeleteProject}
+          onQuickStatusChange={handleQuickStatusChange}
+        />
+      ) : activeTab === 'comparator' ? (
+        <ComparatorView
+          onConvertToProject={(measurements) => handleOpenCreateModal(measurements)}
+        />
+      ) : (
+        <OrdinancesView />
+      )}
+
+      {modalOpen && (
+        <ProjectFormModal
+          editingProject={editingProject}
+          initialMeasurements={prefillMeasurements}
+          onClose={() => setModalOpen(false)}
+          onSave={handleSaveProjectModal}
+        />
+      )}
+    </Layout>
+  );
+};
+
+export function App() {
+  return (
+    <ToastProvider>
+      <AuthProvider>
+        <WorkspaceShell />
+      </AuthProvider>
+    </ToastProvider>
+  );
+}
+
+export default App;
