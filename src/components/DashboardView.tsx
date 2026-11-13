@@ -84,31 +84,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={openInstallModal}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-300 text-sm font-semibold shadow-sm transition-colors"
-          >
-            <MonitorDown className="w-4 h-4 text-civic-700" />
-            Install Desktop App
-          </button>
+        <div className="flex flex-wrap sm:flex-nowrap items-stretch sm:items-end gap-2.5 shrink-0">
           <button
             type="button"
             onClick={() => onNavigate('comparator')}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-sm font-semibold shadow-sm transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-sm font-semibold shadow-sm transition-colors"
           >
             <Scale className="w-4 h-4 text-civic-600" />
             Counter Comparator
           </button>
-          <button
-            type="button"
-            onClick={onNewProject}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-civic-700 hover:bg-civic-800 text-white text-sm font-semibold shadow-sm transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            New Permit Review
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={openInstallModal}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-300 text-sm font-semibold shadow-sm transition-colors"
+            >
+              <MonitorDown className="w-4 h-4 text-civic-700" />
+              Install Desktop App
+            </button>
+            <button
+              type="button"
+              onClick={onNewProject}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-civic-700 hover:bg-civic-800 text-white text-sm font-semibold shadow-sm transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              New Permit Review
+            </button>
+          </div>
         </div>
       </div>
 
