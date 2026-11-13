@@ -23,6 +23,13 @@ async function startServer() {
   app.use(express.json({ limit: '2mb' }));
   app.use(cookieParser());
 
+  // Tag every genuine backend API response so the frontend can distinguish
+  // real IndeeCheck API responses from upstream cloud-proxy auth blocks.
+  app.use('/api', (_req, res, next) => {
+    res.setHeader('X-IndeeCheck-Server', '1');
+    next();
+  });
+
   // Healthcheck
   app.get('/api/health', (_req, res) => {
     res.json({

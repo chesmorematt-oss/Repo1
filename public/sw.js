@@ -1,4 +1,4 @@
-const CACHE_NAME = 'indeecheck-shell-v1';
+const CACHE_NAME = 'indeecheck-shell-v2';
 const PRECACHE_ASSETS = [
   '/favicon.png',
   '/indeecheck.ico',

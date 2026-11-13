@@ -5,9 +5,14 @@ import './index.css';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // Service worker registration may be restricted in sandboxed subframes; safe to ignore
-    });
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => {
+        reg.update().catch(() => undefined);
+      })
+      .catch(() => {
+        // Service worker registration may be restricted in sandboxed subframes; safe to ignore
+      });
   });
 }
 
