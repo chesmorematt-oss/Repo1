@@ -1,5 +1,7 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { Router } from 'express';
-import { db, rowToProject } from '../db.ts';
+import { db, rowToProject, UPLOADS_DIR } from '../db.ts';
 import { requireAuth } from '../auth.ts';
 import type { AuthenticatedRequest } from '../auth.ts';
 import { evaluateProjectCompliance } from '../ordinanceEngine.ts';
@@ -33,7 +35,8 @@ function getFullProjectPayload(projectId: number) {
         (SELECT COUNT(*) FROM checklist_items c WHERE c.project_id = p.id AND c.status = 'pass') as checklist_passed,
         (SELECT COUNT(*) FROM checklist_items c WHERE c.project_id = p.id AND c.status = 'fail') as checklist_failed,
         (SELECT COUNT(*) FROM checklist_items c WHERE c.project_id = p.id AND c.status = 'pending') as checklist_pending,
-        (SELECT COUNT(*) FROM checklist_items c WHERE c.project_id = p.id AND c.status = 'variance') as checklist_variance
+        (SELECT COUNT(*) FROM checklist_items c WHERE c.project_id = p.id AND c.status = 'variance') as checklist_variance,
+        (SELECT COUNT(*) FROM site_plans s WHERE s.project_id = p.id) as site_plan_count
        FROM projects p WHERE p.id = ?`
     )
     .get(projectId) as Record<string, unknown> | undefined;
@@ -47,9 +50,16 @@ function getFullProjectPayload(projectId: number) {
   const notes = db
     .prepare('SELECT * FROM inspection_notes WHERE project_id = ? ORDER BY id DESC')
     .all(projectId);
+  const sitePlans = db
+    .prepare(
+      `SELECT id, project_id, plan_type, title, original_filename,
+              mime_type, file_size, revision_label, notes, uploaded_by, created_at
+       FROM site_plans WHERE project_id = ? ORDER BY id DESC`
+    )
+    .all(projectId);
   const evaluation = evaluateProjectCompliance(project);
 
-  return { project, checklist, notes, evaluation };
+  return { project, checklist, notes, sitePlans, evaluation };
 }
 
 projectsRouter.get('/', (req, res) => {
@@ -61,7 +71,8 @@ projectsRouter.get('/', (req, res) => {
       (SELECT COUNT(*) FROM checklist_items c WHERE c.project_id = p.id AND c.status = 'pass') as checklist_passed,
       (SELECT COUNT(*) FROM checklist_items c WHERE c.project_id = p.id AND c.status = 'fail') as checklist_failed,
       (SELECT COUNT(*) FROM checklist_items c WHERE c.project_id = p.id AND c.status = 'pending') as checklist_pending,
-      (SELECT COUNT(*) FROM checklist_items c WHERE c.project_id = p.id AND c.status = 'variance') as checklist_variance
+      (SELECT COUNT(*) FROM checklist_items c WHERE c.project_id = p.id AND c.status = 'variance') as checklist_variance,
+      (SELECT COUNT(*) FROM site_plans s WHERE s.project_id = p.id) as site_plan_count
     FROM projects p
     WHERE 1=1
   `;
@@ -529,10 +540,24 @@ projectsRouter.post('/:id/duplicate', (req: AuthenticatedRequest, res) => {
 
 projectsRouter.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
+  const storedPlans = db
+    .prepare('SELECT stored_filename FROM site_plans WHERE project_id = ?')
+    .all(id) as Array<{ stored_filename: string }>;
+
   const result = db.prepare('DELETE FROM projects WHERE id = ?').run(id);
   if (result.changes === 0) {
     res.status(404).json({ error: 'Project not found.' });
     return;
   }
+
+  for (const sp of storedPlans) {
+    try {
+      const fp = path.join(UPLOADS_DIR, path.basename(sp.stored_filename));
+      if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    } catch {
+      // ignore unlink errors
+    }
+  }
+
   res.json({ ok: true, deletedId: id });
 });

@@ -11,6 +11,7 @@ import {
   ClipboardList,
   CheckCircle2,
   AlertCircle,
+  Map,
 } from 'lucide-react';
 import type { Project, ProjectStatus } from '../types';
 import { PROJECT_STATUS_META, ZONING_DISTRICTS, formatDateShort } from '../lib/format';
@@ -267,6 +268,12 @@ export const ProjectsListView: React.FC<ProjectsListViewProps> = ({
                       {p.is_corner_lot && (
                         <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
                           Corner Lot
+                        </span>
+                      )}
+                      {(p.site_plan_count ?? 0) > 0 && (
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200 inline-flex items-center gap-1">
+                          <Map className="w-3 h-3" />
+                          {p.site_plan_count} Site Plan{p.site_plan_count === 1 ? '' : 's'}
                         </span>
                       )}
                     </div>

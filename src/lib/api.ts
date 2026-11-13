@@ -63,3 +63,65 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   return data as unknown as T;
 }
+
+export async function uploadSitePlanFile<T>(
+  projectId: number,
+  file: File,
+  meta: {
+    title?: string;
+    plan_type?: string;
+    revision_label?: string;
+    notes?: string;
+  } = {}
+): Promise<T> {
+  const params = new URLSearchParams();
+  params.set('filename', file.name || 'site-plan.pdf');
+  if (file.type) params.set('mime_type', file.type);
+  if (meta.title) params.set('title', meta.title);
+  if (meta.plan_type) params.set('plan_type', meta.plan_type);
+  if (meta.revision_label) params.set('revision_label', meta.revision_label);
+  if (meta.notes) params.set('notes', meta.notes);
+
+  const headers = new Headers();
+  headers.set('Content-Type', file.type || 'application/octet-stream');
+  const token = getStoredToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const res = await fetch(`/api/projects/${projectId}/site-plans?${params.toString()}`, {
+    method: 'POST',
+    headers,
+    body: file,
+    credentials: 'include',
+  });
+
+  const text = await res.text();
+  let data: Record<string, unknown> = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { error: text };
+    }
+  }
+
+  if (!res.ok) {
+    throw new ApiError(
+      String(data.error || `Upload failed with status ${res.status}`),
+      res.status
+    );
+  }
+
+  return data as unknown as T;
+}
+
+export function getSitePlanFileUrl(sitePlanId: number, download = false): string {
+  const params = new URLSearchParams();
+  if (download) params.set('download', '1');
+  const token = getStoredToken();
+  if (token) params.set('token', token);
+  const qs = params.toString();
+  return `/api/site-plans/${sitePlanId}/file${qs ? `?${qs}` : ''}`;
+}
+

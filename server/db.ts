@@ -7,6 +7,11 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
 const DB_PATH = path.join(DATA_DIR, 'indeecheck.sqlite');
 export const db = new DatabaseSync(DB_PATH);
 
@@ -131,6 +136,21 @@ export function initSchema(): void {
       remedy_guidance TEXT NOT NULL DEFAULT '',
       is_custom INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS site_plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      plan_type TEXT NOT NULL DEFAULT 'construction_site_plan',
+      title TEXT NOT NULL,
+      original_filename TEXT NOT NULL,
+      stored_filename TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      file_size INTEGER NOT NULL DEFAULT 0,
+      revision_label TEXT NOT NULL DEFAULT 'Rev 1',
+      notes TEXT NOT NULL DEFAULT '',
+      uploaded_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
 }

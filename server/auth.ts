@@ -79,6 +79,8 @@ export function extractUserFromRequest(req: Request): User | null {
     token = authHeader.slice(7);
   } else if (req.cookies && req.cookies[TOKEN_COOKIE_NAME]) {
     token = req.cookies[TOKEN_COOKIE_NAME];
+  } else if (typeof req.query?.token === 'string' && req.query.token) {
+    token = req.query.token;
   }
   if (!token) return null;
 

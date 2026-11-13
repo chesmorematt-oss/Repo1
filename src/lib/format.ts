@@ -6,6 +6,7 @@ import type {
   OrdinanceCategory,
   ProjectMeasurements,
   ProjectStatus,
+  SitePlanType,
   ZoningDistrict,
 } from '../types';
 
@@ -204,3 +205,42 @@ export const DEFAULT_MEASUREMENTS: ProjectMeasurements = {
   has_fence_permit_app: true,
   iowa_one_call_811: 'IA-2026-1110200',
 };
+
+export const SITE_PLAN_TYPE_META: Record<
+  SitePlanType,
+  { label: string; shortLabel: string; badgeClass: string }
+> = {
+  construction_site_plan: {
+    label: 'Construction Site Plan',
+    shortLabel: 'Site Plan',
+    badgeClass: 'bg-sky-50 text-sky-800 border-sky-200',
+  },
+  boundary_survey: {
+    label: 'Boundary / Lot-Line Survey',
+    shortLabel: 'Survey',
+    badgeClass: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+  },
+  floodplain_elevation: {
+    label: 'FEMA Elevation / Floodplain Exhibit',
+    shortLabel: 'Floodplain Exhibit',
+    badgeClass: 'bg-cyan-50 text-cyan-800 border-cyan-200',
+  },
+  fence_sketch: {
+    label: 'Fence & Sight-Triangle Sketch',
+    shortLabel: 'Fence Sketch',
+    badgeClass: 'bg-teal-50 text-teal-800 border-teal-200',
+  },
+  grading_drainage: {
+    label: 'Grading & Drainage Plan',
+    shortLabel: 'Grading Plan',
+    badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+  },
+};
+
+export function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+

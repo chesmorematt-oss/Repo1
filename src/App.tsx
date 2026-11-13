@@ -13,7 +13,7 @@ import { ProjectDetailView } from './components/ProjectDetailView';
 import { ProjectFormModal } from './components/ProjectFormModal';
 import { ComparatorView } from './components/ComparatorView';
 import { OrdinancesView } from './components/OrdinancesView';
-import { apiFetch } from './lib/api';
+import { apiFetch, uploadSitePlanFile } from './lib/api';
 import { PROJECT_STATUS_META } from './lib/format';
 import type { Project, ProjectMeasurements, ProjectStatus } from './types';
 
@@ -105,26 +105,51 @@ const WorkspaceShell: React.FC = () => {
   const handleSaveProjectModal = async (
     payload: Record<string, unknown>,
     isEdit: boolean,
-    id?: number
+    id?: number,
+    sitePlanFiles?: File[]
   ) => {
+    let targetProjectId: number;
+    let permitLabel: string;
+
     if (isEdit && id) {
       const res = await apiFetch<{ project: Project }>(`/api/projects/${id}`, {
         method: 'PUT',
         body: JSON.stringify(payload),
       });
+      targetProjectId = id;
+      permitLabel = res.project.permit_number;
       setProjects((curr) => curr.map((p) => (p.id === id ? res.project : p)));
-      setDetailRefreshKey((k) => k + 1);
-      showToast(`Updated ${res.project.permit_number} & re-synced ordinance checks.`);
     } else {
       const res = await apiFetch<{ project: Project }>('/api/projects', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
+      targetProjectId = res.project.id;
+      permitLabel = res.project.permit_number;
       setProjects((curr) => [res.project, ...curr]);
       setSelectedProjectId(res.project.id);
       setActiveTab('projects');
-      showToast(`Created permit checklist ${res.project.permit_number}.`);
     }
+
+    if (sitePlanFiles && sitePlanFiles.length > 0) {
+      for (let i = 0; i < sitePlanFiles.length; i++) {
+        await uploadSitePlanFile(targetProjectId, sitePlanFiles[i], {
+          plan_type: 'construction_site_plan',
+          revision_label: `Rev ${i + 1}`,
+        });
+      }
+    }
+
+    setDetailRefreshKey((k) => k + 1);
+    const planSuffix =
+      sitePlanFiles && sitePlanFiles.length > 0
+        ? ` (${sitePlanFiles.length} site plan${sitePlanFiles.length > 1 ? 's' : ''} attached)`
+        : '';
+    showToast(
+      isEdit
+        ? `Updated ${permitLabel} & re-synced ordinance checks${planSuffix}.`
+        : `Created permit checklist ${permitLabel}${planSuffix}.`
+    );
     fetchProjects();
   };
 

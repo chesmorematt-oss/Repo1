@@ -16,6 +16,8 @@ import {
   ClipboardCheck,
   FileText,
   CheckCheck,
+  UploadCloud,
+  Map,
 } from 'lucide-react';
 import type {
   ChecklistItem,
@@ -26,6 +28,7 @@ import type {
   OrdinanceCategory,
   Project,
   ProjectStatus,
+  SitePlanDocument,
 } from '../types';
 import {
   CATEGORY_META,
@@ -33,12 +36,13 @@ import {
   PROJECT_STATUS_META,
   formatDateShort,
 } from '../lib/format';
-import { apiFetch } from '../lib/api';
+import { apiFetch, getSitePlanFileUrl } from '../lib/api';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { SitePlanDiagram } from './diagrams/SitePlanDiagram';
 import { FloodplainCrossSection } from './diagrams/FloodplainCrossSection';
 import { IndependenceLogo } from './IndependenceLogo';
+import { SitePlansPanel } from './SitePlansPanel';
 
 interface ProjectDetailViewProps {
   projectId: number;
@@ -66,9 +70,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [project, setProject] = useState<Project | null>(null);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [notes, setNotes] = useState<InspectionNote[]>([]);
+  const [sitePlans, setSitePlans] = useState<SitePlanDocument[]>([]);
   const [evaluation, setEvaluation] = useState<EvaluationSummary | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'checklist' | 'comparison' | 'notes'>('checklist');
+  const [activeTab, setActiveTab] = useState<
+    'checklist' | 'comparison' | 'site_plans' | 'notes'
+  >('checklist');
+  const [autoOpenSitePlanUploader, setAutoOpenSitePlanUploader] = useState(false);
   const [catFilter, setCatFilter] = useState<'all' | OrdinanceCategory>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ChecklistStatus>('all');
 
@@ -105,11 +113,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         project: Project;
         checklist: ChecklistItem[];
         notes: InspectionNote[];
+        sitePlans?: SitePlanDocument[];
         evaluation: EvaluationSummary;
       }>(`/api/projects/${projectId}`);
       setProject(data.project);
       setChecklist(data.checklist);
       setNotes(data.notes);
+      setSitePlans(data.sitePlans || []);
       setEvaluation(data.evaluation);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to load permit review.', 'error');
@@ -541,6 +551,18 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
           <button
             type="button"
+            onClick={() => {
+              setAutoOpenSitePlanUploader(true);
+              setActiveTab('site_plans');
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-civic-200 bg-civic-50 hover:bg-civic-100 text-xs font-semibold text-civic-800"
+          >
+            <UploadCloud className="w-3.5 h-3.5" />
+            Upload Site Plan
+          </button>
+
+          <button
+            type="button"
             onClick={() => onEditProject(project)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
           >
@@ -632,6 +654,16 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-teal-50 text-teal-800 border border-teal-200">
                   IMC Ch. 152 Fence Included
                 </span>
+              )}
+              {sitePlans.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('site_plans')}
+                  className="text-xs font-semibold px-2.5 py-1 rounded-md bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 inline-flex items-center gap-1 transition-colors"
+                >
+                  <Map className="w-3.5 h-3.5" />
+                  {sitePlans.length} Site Plan{sitePlans.length === 1 ? '' : 's'}
+                </button>
               )}
             </div>
 
@@ -742,6 +774,22 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 {evaluation.fail_count}
               </span>
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setAutoOpenSitePlanUploader(false);
+              setActiveTab('site_plans');
+            }}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'site_plans'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Map className="w-4 h-4" />
+            Construction Site Plans ({sitePlans.length})
           </button>
 
           <button
@@ -1022,6 +1070,59 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       {/* ================================================================= */}
       {activeTab === 'comparison' && evaluation && (
         <div className="space-y-6">
+          {/* Quick link to Uploaded Applicant Construction Site Plan if on file */}
+          {sitePlans.length > 0 ? (
+            <div className="bg-sky-50/70 border border-sky-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-white border border-sky-200 text-civic-700 flex items-center justify-center shrink-0">
+                  <Map className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 truncate">
+                    Applicant Site Plan Attached: {sitePlans[0].title} ({sitePlans[0].revision_label})
+                  </div>
+                  <div className="text-[11px] text-slate-600 truncate">
+                    {sitePlans.length} uploaded construction drawing{sitePlans.length === 1 ? '' : 's'} on file for verification against Independence bulk setbacks
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('site_plans')}
+                  className="px-3 py-1.5 rounded-lg bg-civic-700 hover:bg-civic-800 text-white text-xs font-semibold shadow-sm"
+                >
+                  Inspect Uploaded Site Plan
+                </button>
+                <a
+                  href={getSitePlanFileUrl(sitePlans[0].id, false)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-lg border border-sky-300 bg-white hover:bg-sky-50 text-sky-900 text-xs font-semibold"
+                >
+                  Open Side-by-Side
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-100/80 border border-dashed border-slate-300 rounded-2xl p-3.5 flex items-center justify-between gap-3 no-print">
+              <span className="text-xs text-slate-600">
+                Have a PDF, CAD plot, or hand-drawn parcel sketch from the applicant?
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setAutoOpenSitePlanUploader(true);
+                  setActiveTab('site_plans');
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-civic-700 shrink-0"
+              >
+                <UploadCloud className="w-3.5 h-3.5" />
+                Upload Construction Site Plan
+              </button>
+            </div>
+          )}
+
           {/* Live Engineering Diagrams Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <SitePlanDiagram measurements={project} />
@@ -1203,7 +1304,23 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       )}
 
       {/* ================================================================= */}
-      {/* TAB 3: INSPECTION LOG & CONDITIONS OF APPROVAL (FULL CRUD)         */}
+      {/* TAB 3: CONSTRUCTION SITE PLANS & SUBMITTAL DRAWINGS               */}
+      {/* ================================================================= */}
+      {activeTab === 'site_plans' && (
+        <SitePlansPanel
+          projectId={project.id}
+          propertyAddress={project.property_address}
+          sitePlans={sitePlans}
+          autoOpenUploader={autoOpenSitePlanUploader}
+          onSitePlansChanged={(nextPlans) => {
+            setSitePlans(nextPlans);
+            onProjectUpdated();
+          }}
+        />
+      )}
+
+      {/* ================================================================= */}
+      {/* TAB 4: INSPECTION LOG & CONDITIONS OF APPROVAL (FULL CRUD)         */}
       {/* ================================================================= */}
       {activeTab === 'notes' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

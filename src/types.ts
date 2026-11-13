@@ -130,6 +130,7 @@ export interface Project extends ProjectMeasurements {
   checklist_failed?: number;
   checklist_pending?: number;
   checklist_variance?: number;
+  site_plan_count?: number;
 }
 
 export interface ChecklistItem {
@@ -196,3 +197,25 @@ export interface EvaluationSummary {
   effective_bulk_district: string;
   checks: ComparisonCheckResult[];
 }
+
+export type SitePlanType =
+  | 'construction_site_plan'
+  | 'boundary_survey'
+  | 'floodplain_elevation'
+  | 'fence_sketch'
+  | 'grading_drainage';
+
+export interface SitePlanDocument {
+  id: number;
+  project_id: number;
+  plan_type: SitePlanType;
+  title: string;
+  original_filename: string;
+  mime_type: string;
+  file_size: number;
+  revision_label: string;
+  notes: string;
+  uploaded_by: string;
+  created_at: string;
+}
+

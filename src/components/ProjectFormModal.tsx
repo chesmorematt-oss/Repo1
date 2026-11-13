@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, MapPin, Building2, Waves, Fence, Check } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { X, MapPin, Building2, Waves, Fence, Check, UploadCloud, Trash2, FileText } from 'lucide-react';
 import type {
   FenceMaterial,
   FenceYardLocation,
@@ -14,6 +14,7 @@ import {
   DEFAULT_MEASUREMENTS,
   FENCE_MATERIALS,
   FLOOD_ZONES,
+  formatFileSize,
   LAND_USE_OPTIONS,
   ZONING_DISTRICTS,
 } from '../lib/format';
@@ -23,7 +24,12 @@ interface ProjectFormModalProps {
   editingProject?: Project | null;
   initialMeasurements?: ProjectMeasurements | null;
   onClose: () => void;
-  onSave: (payload: Record<string, unknown>, isEdit: boolean, id?: number) => Promise<void>;
+  onSave: (
+    payload: Record<string, unknown>,
+    isEdit: boolean,
+    id?: number,
+    sitePlanFiles?: File[]
+  ) => Promise<void>;
 }
 
 export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
@@ -61,6 +67,26 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
   // Measurements state
   const [m, setM] = useState<ProjectMeasurements>({ ...baseM });
 
+  // Optional Construction Site Plan attachment(s)
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [sitePlanFiles, setSitePlanFiles] = useState<File[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+
+  const addSitePlanFiles = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const valid: File[] = [];
+    for (const f of Array.from(fileList)) {
+      if (f.size > 25 * 1024 * 1024) {
+        setError(`"${f.name}" exceeds the 25 MB maximum upload size.`);
+        continue;
+      }
+      valid.push(f);
+    }
+    if (valid.length > 0) {
+      setSitePlanFiles((prev) => [...prev, ...valid]);
+    }
+  };
+
   const updateM = <K extends keyof ProjectMeasurements>(key: K, val: ProjectMeasurements[K]) => {
     setM((prev) => ({ ...prev, [key]: val }));
   };
@@ -91,7 +117,8 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
           auto_sync_checklist: true,
         },
         isEdit,
-        editingProject?.id
+        editingProject?.id,
+        sitePlanFiles
       );
       onClose();
     } catch (err) {
@@ -306,6 +333,79 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({
                     placeholder="Describe proposed construction, grading, floodplain conditions, and fence details..."
                     className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-civic-500"
                   />
+                </div>
+
+                {/* Construction Site Plan Upload Box */}
+                <div className="sm:col-span-2 pt-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Construction Site Plan / Submittal Drawing (Optional)
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.svg,.tif,.tiff,.dwg,.dxf"
+                    className="hidden"
+                    onChange={(e) => addSitePlanFiles(e.target.files)}
+                  />
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragActive(true);
+                    }}
+                    onDragLeave={() => setDragActive(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragActive(false);
+                      addSitePlanFiles(e.dataTransfer.files);
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition-all ${
+                      dragActive
+                        ? 'border-civic-600 bg-civic-50/70'
+                        : 'border-slate-300 hover:border-civic-500 bg-slate-50/80 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-800">
+                      <UploadCloud className="w-4 h-4 text-civic-700" />
+                      <span>
+                        Drag &amp; drop Construction Site Plan here or{' '}
+                        <span className="text-civic-700 underline">browse files</span>
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      PDF, PNG, JPG, WEBP, SVG, TIFF, DWG, or DXF (up to 25 MB per sheet)
+                    </div>
+                  </div>
+
+                  {sitePlanFiles.length > 0 && (
+                    <div className="mt-2 space-y-1.5">
+                      {sitePlanFiles.map((f, idx) => (
+                        <div
+                          key={`${f.name}-${idx}`}
+                          className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-sky-50 border border-sky-200 text-xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="w-3.5 h-3.5 text-civic-700 shrink-0" />
+                            <span className="font-semibold text-slate-900 truncate">{f.name}</span>
+                            <span className="text-slate-500 shrink-0">
+                              ({formatFileSize(f.size)})
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSitePlanFiles((curr) => curr.filter((_, i) => i !== idx))
+                            }
+                            className="p-1 text-slate-400 hover:text-rose-600"
+                            title="Remove file"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
