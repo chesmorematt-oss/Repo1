@@ -8,6 +8,7 @@
     "dev": "node --experimental-strip-types --no-warnings server/index.ts",
     "build": "vite build",
     "start": "NODE_ENV=production node --experimental-strip-types --no-warnings server/index.ts",
+    "install:desktop": "node scripts/install-desktop.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

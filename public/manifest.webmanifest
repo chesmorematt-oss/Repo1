@@ -1,0 +1,57 @@
+{
+  "id": "/",
+  "name": "IndeeCheck — Independence, IA Planning & Zoning",
+  "short_name": "IndeeCheck",
+  "description": "City of Independence, Iowa Planning & Zoning (Ch. 170), Floodplain (Ch. 167), and Fence (Ch. 152) Ordinance Compliance Checklist Workbench",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#041e37",
+  "theme_color": "#004880",
+  "categories": ["government", "productivity", "utilities", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Permit Checklists",
+      "short_name": "Checklists",
+      "description": "View and manage Independence permit checklists",
+      "url": "/?tab=projects",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Ordinance Comparator",
+      "short_name": "Comparator",
+      "description": "Run live Zoning, Floodplain, and Fence comparisons",
+      "url": "/?tab=comparator",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Ordinance Rulebook",
+      "short_name": "Rulebook",
+      "description": "Browse Independence Table 1 setbacks, Ch. 167 & Ch. 152",
+      "url": "/?tab=ordinances",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

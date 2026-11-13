@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
+import { DesktopInstallProvider } from './context/DesktopInstallContext';
+import { InstallDesktopModal } from './components/InstallDesktopModal';
 import { AuthPage } from './components/AuthPage';
 import { Layout } from './components/Layout';
 import type { NavTab } from './components/Layout';
@@ -19,7 +21,15 @@ const WorkspaceShell: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<NavTab>(() => {
+    if (typeof window !== 'undefined') {
+      const tabParam = new URLSearchParams(window.location.search).get('tab');
+      if (tabParam === 'projects' || tabParam === 'comparator' || tabParam === 'ordinances') {
+        return tabParam;
+      }
+    }
+    return 'dashboard';
+  });
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [detailRefreshKey, setDetailRefreshKey] = useState(0);
 
@@ -231,9 +241,12 @@ const WorkspaceShell: React.FC = () => {
 export function App() {
   return (
     <ToastProvider>
-      <AuthProvider>
-        <WorkspaceShell />
-      </AuthProvider>
+      <DesktopInstallProvider>
+        <AuthProvider>
+          <WorkspaceShell />
+          <InstallDesktopModal />
+        </AuthProvider>
+      </DesktopInstallProvider>
     </ToastProvider>
   );
 }

@@ -9,14 +9,17 @@ import {
   User as UserIcon,
   Briefcase,
   Sparkles,
+  MonitorDown,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useDesktopInstall } from '../context/DesktopInstallContext';
 import { IndependenceLogo } from './IndependenceLogo';
 
 export const AuthPage: React.FC = () => {
   const { login, register, demoLogin } = useAuth();
   const { showToast } = useToast();
+  const { openInstallModal } = useDesktopInstall();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('zoning@independenceia.gov');
@@ -121,9 +124,19 @@ export const AuthPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-white/10 text-xs text-slate-400 flex flex-wrap items-center justify-between gap-2">
-          <span>City Hall Reference: 331 1st Street East, Independence, IA 50644</span>
-          <span>Building &amp; Code Dept: (319) 334-4711</span>
+        <div className="mt-10 pt-6 border-t border-white/10 text-xs text-slate-400 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div>City Hall Reference: 331 1st Street East, Independence, IA 50644</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Building &amp; Code Dept: (319) 334-4711</div>
+          </div>
+          <button
+            type="button"
+            onClick={openInstallModal}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs transition-colors"
+          >
+            <MonitorDown className="w-4 h-4 text-sky-400" />
+            Install Desktop App
+          </button>
         </div>
       </div>
 

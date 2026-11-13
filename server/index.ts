@@ -9,6 +9,7 @@ import { projectsRouter } from './routes/projects.ts';
 import { checklistRouter } from './routes/checklist.ts';
 import { ordinancesRouter } from './routes/ordinances.ts';
 import { notesRouter } from './routes/notes.ts';
+import { desktopRouter } from './routes/desktop.ts';
 
 async function startServer() {
   initSchema();
@@ -31,6 +32,7 @@ async function startServer() {
 
   // API Routes
   app.use('/api/auth', authRouter);
+  app.use('/api/desktop', desktopRouter);
   app.use('/api/projects', projectsRouter);
   app.use('/api/ordinances', ordinancesRouter);
   app.use('/api', checklistRouter);

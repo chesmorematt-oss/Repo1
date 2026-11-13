@@ -38,7 +38,16 @@ All seeded accounts use password `Indee2026!` (and can also be switched with one
 
 ```bash
 npm install
-npm run dev      # Starts unified Express API + Vite server on 0.0.0.0:3000
-npm run build    # Builds frontend bundle to dist/
-npm start        # Runs production server on 0.0.0.0:3000
+npm run dev              # Starts unified Express API + Vite server on 0.0.0.0:3000
+npm run install:desktop  # Creates a native Desktop launcher icon (Windows .lnk / macOS .app / Linux .desktop)
+npm run build            # Builds frontend bundle to dist/
+npm start                # Runs production server on 0.0.0.0:3000
 ```
+
+## Installing on Your Desktop (with Official City of Independence Icon)
+
+IndeeCheck supports three ways to install a standalone desktop application with the official **City of Independence Planning & Zoning** icon (`public/indeecheck.ico` and `public/icons/icon-512.png`):
+
+1. **In-App Desktop Installer Modal**: Click **Install Desktop App** in the left sidebar, dashboard header, or login portal to trigger a 1-click browser PWA install or download a ready-to-run OS launcher (`Install-IndeeCheck-Desktop.bat` for Windows, `Install-IndeeCheck-Mac.command` for macOS, or `IndeeCheck.desktop` for Linux).
+2. **Browser PWA Install (Edge / Chrome / Safari)**: Open IndeeCheck in a full browser tab and click the **Install IndeeCheck** icon in the address bar (or **File → Add to Dock...** in Safari) to install a standalone desktop window with Desktop, Start Menu, and Taskbar/Dock shortcuts.
+3. **Local Repository Desktop Shortcut (`npm run install:desktop`)**: When running locally from a cloned repository, run `npm run install:desktop` to create a native launcher with icon on your Desktop that automatically starts the local server if needed and opens IndeeCheck in standalone app mode.
